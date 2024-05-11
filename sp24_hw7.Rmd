@@ -1,0 +1,134 @@
+---
+title: "Homework 7"
+author: "Zhenya Ratushko"
+output: html_document
+---
+
+```{r setup, include=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Problem 1: The infamous mule kick data <small>20pts</small>
+
+The file `mule_kicks.csv`, available for download (here) [https://kdlevin-uwstat.github.io/STAT340-Fall2021/hw/03/mule_kicks.csv], contains a simplified version of a very famous data set. The data consists of the number of soldiers killed by being kicked by mules or horses each year in a number of different companies in the Prussian army near the end of the 19th century.
+
+This may seem at first to be a very silly thing to collect data about, but it is a very interesting thing to look at if you are interested in rare events. Deaths by horse kick were rare events that occurred independently of one another, and thus it is precisely the kind of process that we might expect to obey a Poisson distribution.
+
+Download the data and read it into R by running
+
+```{r}
+download.file('https://kdlevin-uwstat.github.io/STAT340-Fall2021/hw/03/mule_kicks.csv', destfile='mule_kicks.csv')
+mule_kicks = read.csv('mule_kicks.csv', header=TRUE)
+
+head(mule_kicks)
+```
+
+`mule_kicks` contains a single column, called `deaths`.
+Each entry is the number of soldiers killed in one corps of the Prussian army in one year.
+There are 14 corps in the data set, studied over 20 years, for a total of 280 death counts.
+
+### Part a: estimating the Poisson rate <small>5pts</small>
+
+Assuming that the mule kicks data follows a Poisson distribution, produce a point estimate for the rate parameter $\lambda$.
+There are no strictly right or wrong answers, here, though there are certainly better or worse ones.
+
+```{r}
+rate_parameter = mean(mule_kicks$deaths)
+rate_parameter
+```
+
+
+### Part b: constructing a CI <small>10pts</small>
+
+Using everything you know (Monte Carlo, CLT, etc.), construct a confidence interval for the rate parameter $\lambda$.
+Explain in reasonable detail what you are doing and why you are constructing the confidence interval in this way (a few sentences is fine!).
+
+```{r}
+data = rpois(n = 280, lambda = rate_parameter)
+lambda_hat = mean(data)
+
+nrep = 1e5
+replicates = rep(NA, nrep)
+for (i in 1:nrep) {
+  fake_data = rpois(n = 280, lambda = lambda_hat)
+  replicates[i] = mean(fake_data)
+}
+
+CI = quantile(replicates, probs = c(0.025, 0.975))
+cat(CI)
+```
+
+***
+
+To construct a confidence interval for the rate parameter $\lambda$, I started by generating a Poisson distribution with rpois(), using our rate parameter from Part A as the argument for $\lambda$. I then found the sample mean of this distribution, which I used as the new argument for $\lambda$ while randomly generating more data with rpois() inside of a Monte Carlo simulation. I repeated this simulation 1e5 times, computing a new estimate on each new data sample, with each repetition giving us a replicate of our statistic under the distribution where $\lambda$ = lambda_hat. I then used the saved estimates as the numeric vector argument inside the quantiles() function and found the 0.025 and 0.975 quantiles (also using the cat() function to then concatenate and print them), thereby yielding a confidence interval for $\lambda$.
+
+***
+
+
+### Part c: assessing a model <small>5pts</small>
+
+Here's a slightly more open-ended question.
+We *assumed* that the data followed a Poisson distribution.
+This may or may not be a reasonable assumption.
+Use any and all tools that you know to assess (either with code or simply in words) how reasonable or unreasonable this assumption is.
+
+Once again, there are no strictly right or wrong answers here.
+Explain and defend your decisions and thought processes in a reasonable way and you will receive full credit.
+
+***
+
+```{r}
+variance_mulekicks = var(mule_kicks$deaths)
+variance_mulekicks
+```
+
+I hold that it is a reasonable assumption to believe that the mule kick data follows a Poisson distribution. First off, in a Poisson distribution, the mean and variance both equal the value $\lambda$. In this situation, our observed mean is 0.7 and our observed variance is 0.762724, which are not the same value, but because we are working with a small sample size, it is reasonable to believe that, with a larger sample, those two values could level out with each other. Next, a Poisson distribution is known to be appropriate for count data, and this dataset is, quite plainly, counting the number of deaths in various squadron over multiple years. Finally, because we know that the deaths by horse kick in the sample approximately follow a Poisson distribution, we can reasonably infer that the population as a whole follows a Poisson distribution.
+
+***
+
+
+
+## Problem 2: Closing the loop <small>10 pts</small>
+
+In our discussion of the Universal Widgets of Madison company from lecture, we said that we were interested in two questions:
+
+1. Estimating the probability $p$ that a widget is functional.
+2. How many widgets should be in a batch to ensure that (with high probability) a batch ships with at least $5$ functional widgets in it?
+
+We discussed question (1) at length in lecture.
+What about question (2)?
+Our client wants to know how many widgets should ship in each batch so as to ensure that the probability there are at least $5$ functional widgets in a batch is at least $0.99$.
+
+Now, suppose that we have observed data and estimated $p$ to be $0.82$.
+
+Use everything you know so far in this course to give a recommendation to the client.
+Be sure to explain clearly what you are doing and why.
+If there are any steps, assumptions, etc., that you are not 100% pleased with, feel free to point them out.
+
+__Note:__ there are at least two "obvious" ways to solve this problem. One is based on using Monte Carlo (i.e., assume $p=0.82$ is the truth, and try generating batches of different sizes, etc.).
+The other uses direct computation of probabilities, using basic facts about Binomial RVs.
+Neither of these is necessarily better than the other, and you do not need to use both approaches to receive full credit.
+Indeed, you are free to try doing something else entirely, if you wish.
+Just explain clearly what you are doing and why!
+
+```{r}
+NMC = 1e5
+n = 10
+
+functional_widgets = rep(NA, NMC)
+for(i in 1:NMC) {
+  sample = rbinom(n, 1, 0.82)
+  functional_widgets[i] = sum(sample)
+}
+
+val = sum(as.integer(functional_widgets >= 5))/NMC
+val
+```
+
+
+***
+
+In my attempt to give a recommendation to the client, I decided to run a Monte Carlo simulation 1e5 times, in which I generated sample data with the parameters n = n (representing the total number of widgets in each batch, functional or not), size = 1 (yields the outcomes 0 or 1, with 0 representing non-functional widgets and 1 representing functional ones), and prob = 0.82 (given). I then took the sum of each sample and added it to the `functional_widgets` vector, representing the total number of working widgets. Outside of the Monte Carlo simulation, I filtered the `functional_widgets` vector by the condition of whether or not a vector component had five or more working widgets (sum of 5 or more), which I then converted to boolean values based on if this condition was true or not. I then took the sum of this and divided it by the NMC, which then yielded a number that represents the probability of there being at least 5 functional widgets in a batch. 10 is the ideal number, as it yields a 99.6% probability rate, while in comparison, 9 yields 98.7% and 11 yields 99.8%.
+
+***
+
